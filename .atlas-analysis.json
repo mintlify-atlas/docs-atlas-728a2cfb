@@ -1,0 +1,63 @@
+{
+  "projectType": "frontend",
+  "projectName": "Matrix Rain & CharCam",
+  "projectDescription": "Interactive Next.js web application featuring Matrix digital rain effects and real-time ASCII art webcam rendering",
+  "theme": "aspen",
+  "primaryColor": "#00FF00",
+  "lightColor": "#10B981",
+  "darkColor": "#059669",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get Started",
+        "pages": [
+          "introduction",
+          "quickstart",
+          "installation"
+        ]
+      },
+      {
+        "group": "Features",
+        "pages": [
+          "features/matrix-rain",
+          "features/charcam",
+          "features/customization"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "guides/deployment",
+          "guides/configuration",
+          "guides/troubleshooting"
+        ]
+      },
+      {
+        "group": "Development",
+        "pages": [
+          "development/architecture",
+          "development/contributing",
+          "development/canvas-rendering"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Matrix-style digital rain animation with HTML5 Canvas",
+    "Real-time ASCII art webcam rendering (CharCam)",
+    "Customizable animation speed and color controls",
+    "RGB rainbow mode for vibrant effects",
+    "Reversible rain direction",
+    "Responsive design with mobile support",
+    "Camera permission handling and error states"
+  ],
+  "publicApiSurface": [
+    "Home (/) - Matrix digital rain page",
+    "/chars - CharCam ASCII webcam page",
+    "/lorem - About page",
+    "Speed control (10-300%)",
+    "Color picker for character color",
+    "RGB mode toggle",
+    "Rain direction toggle"
+  ]
+}
