@@ -1,0 +1,224 @@
+---
+title: Deployment
+description: Learn how to deploy the Matrix Rain & CharCam project to Vercel, Netlify, and custom hosting platforms
+---
+
+This guide covers deploying your Next.js 15 application to various hosting platforms.
+
+## Deploy to Vercel
+
+Vercel is the recommended platform for deploying Next.js applications, offering zero-configuration deployment.
+
+<Steps>
+  <Step title="Install Vercel CLI (optional)">
+    You can deploy via the Vercel dashboard or CLI:
+    ```bash
+    npm install -g vercel
+    ```
+  </Step>
+
+  <Step title="Connect your repository">
+    1. Go to [vercel.com/new](https://vercel.com/new)
+    2. Import your Git repository (GitHub, GitLab, or Bitbucket)
+    3. Vercel will auto-detect the Next.js framework
+  </Step>
+
+  <Step title="Configure build settings">
+    Vercel automatically detects the following settings:
+    - **Build Command**: `next build`
+    - **Output Directory**: `.next`
+    - **Install Command**: `npm install`
+    
+    No additional configuration is needed for this project.
+  </Step>
+
+  <Step title="Deploy">
+    Click "Deploy" and Vercel will build and deploy your application. Future commits to your main branch will trigger automatic deployments.
+  </Step>
+</Steps>
+
+<Tip>
+Vercel provides automatic HTTPS, global CDN, and preview deployments for every pull request.
+</Tip>
+
+### Deploy via CLI
+
+For CLI deployment:
+
+```bash
+# From your project root
+vercel
+
+# For production deployment
+vercel --prod
+```
+
+## Deploy to Netlify
+
+Netlify also provides excellent support for Next.js applications.
+
+<Steps>
+  <Step title="Create netlify.toml">
+    Add a `netlify.toml` file to your project root:
+    ```toml
+    [build]
+      command = "npm run build"
+      publish = ".next"
+
+    [[plugins]]
+      package = "@netlify/plugin-nextjs"
+    ```
+  </Step>
+
+  <Step title="Connect repository">
+    1. Go to [app.netlify.com](https://app.netlify.com)
+    2. Click "Add new site" → "Import an existing project"
+    3. Connect your Git provider and select your repository
+  </Step>
+
+  <Step title="Configure build settings">
+    Netlify should auto-detect settings, but verify:
+    - **Build command**: `npm run build`
+    - **Publish directory**: `.next`
+    - **Node version**: 20 or higher (set in `NODE_VERSION` environment variable if needed)
+  </Step>
+
+  <Step title="Deploy">
+    Click "Deploy site" to start the deployment process.
+  </Step>
+</Steps>
+
+<Warning>
+The CharCam feature (`/chars`) requires camera permissions, which only work over HTTPS. Both Vercel and Netlify provide automatic HTTPS certificates.
+</Warning>
+
+## Custom hosting
+
+For self-hosted deployments on VPS, Docker, or custom servers.
+
+### Production build
+
+<Steps>
+  <Step title="Build the application">
+    ```bash
+    npm install
+    npm run build
+    ```
+    This creates an optimized production build in the `.next` directory.
+  </Step>
+
+  <Step title="Start the server">
+    ```bash
+    npm start
+    ```
+    The application runs on port 3000 by default.
+  </Step>
+
+  <Step title="Configure reverse proxy (optional)">
+    For production, use a reverse proxy like nginx:
+    ```nginx
+    server {
+      listen 80;
+      server_name yourdomain.com;
+
+      location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+### Docker deployment
+
+Create a `Dockerfile` in your project root:
+
+```dockerfile
+FROM node:20-alpine AS base
+
+# Install dependencies
+FROM base AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+
+# Build application
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npm run build
+
+# Production image
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+EXPOSE 3000
+ENV PORT=3000
+
+CMD ["node", "server.js"]
+```
+
+<Tip>
+For Docker deployment, add `output: 'standalone'` to your `next.config.ts` to reduce image size.
+</Tip>
+
+Build and run:
+
+```bash
+docker build -t matrix-rain .
+docker run -p 3000:3000 matrix-rain
+```
+
+### Process manager (PM2)
+
+For long-running processes without Docker:
+
+```bash
+# Install PM2
+npm install -g pm2
+
+# Start application
+pm2 start npm --name "matrix-rain" -- start
+
+# Save process list
+pm2 save
+
+# Setup auto-restart on reboot
+pm2 startup
+```
+
+## Environment variables
+
+If you add environment variables in the future, configure them on your platform:
+
+- **Vercel**: Project Settings → Environment Variables
+- **Netlify**: Site Settings → Environment Variables
+- **Custom hosting**: Create a `.env.local` file (not committed to Git)
+
+## Performance optimization
+
+All platforms benefit from Next.js's automatic optimizations:
+
+- Automatic code splitting
+- Image optimization via `next/image`
+- Font optimization with `next/font` (Geist fonts in `src/app/layout.tsx:2-13`)
+- Static generation where possible
+
+<Tip>
+The Matrix Rain effect uses HTML5 Canvas, which is client-side only. Next.js will handle this efficiently with automatic code splitting.
+</Tip>

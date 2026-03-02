@@ -1,0 +1,772 @@
+---
+title: Canvas rendering
+description: Deep dive into Canvas API usage for Matrix rain and CharCam effects
+---
+
+## Overview
+
+Both Matrix Rain and CharCam use the HTML5 Canvas API for high-performance, real-time rendering. This guide explores the rendering techniques, optimization strategies, and implementation details.
+
+## Canvas fundamentals
+
+### Setting up Canvas refs
+
+Canvas elements are accessed via React refs for direct DOM manipulation:
+
+```tsx
+const canvasRef = useRef<HTMLCanvasElement>(null);
+
+// Later in JSX
+<canvas ref={canvasRef} style={{ display: "block", background: "#000" }} />
+```
+
+### Getting the 2D context
+
+All rendering operations require a 2D rendering context:
+
+```tsx
+const canvas = canvasRef.current;
+if (!canvas) return;
+
+const ctx = canvas.getContext("2d");
+if (!ctx) return;
+```
+
+<Note>
+Always check for null before accessing canvas and context. These may be null during initial render or unmount.
+</Note>
+
+## Matrix rain rendering
+
+### Initialization phase
+
+The rendering setup happens in a useEffect (page.tsx:56-147):
+
+<Steps>
+
+<Step title="Set canvas dimensions">
+Canvas size matches viewport dimensions:
+
+```tsx
+canvasDimensionsRef.current.width = window.innerWidth;
+canvasDimensionsRef.current.height = window.innerHeight;
+canvas.width = canvasDimensionsRef.current.width;
+canvas.height = canvasDimensionsRef.current.height;
+```
+
+<Tip>
+Setting `canvas.width` and `canvas.height` (not CSS properties) determines the internal drawing buffer resolution.
+</Tip>
+</Step>
+
+<Step title="Calculate grid columns">
+Columns are calculated based on font size:
+
+```tsx
+const fontSize = 16;
+const columns = Math.floor(window.innerWidth / fontSize);
+canvasDimensionsRef.current.columns = columns;
+```
+</Step>
+
+<Step title="Initialize drop positions">
+Each column gets a random starting position:
+
+```tsx
+const newDrops: number[] = [];
+for (let i = 0; i < columns; i++) {
+  if (isFallingDownRef.current) {
+    // Start above viewport with random offset
+    newDrops[i] = Math.random() * -height / fontSize;
+  } else {
+    // Start below viewport for upward rain
+    newDrops[i] = height / fontSize + (Math.random() * height / fontSize);
+  }
+}
+dropsRef.current = newDrops;
+```
+</Step>
+
+<Step title="Define character set">
+Combine katakana, Latin, and numeric characters:
+
+```tsx
+const katakana = "アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピ...";
+const latin = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const nums = "0123456789";
+const characters = katakana + latin + nums;
+```
+</Step>
+
+</Steps>
+
+### Animation loop
+
+The core rendering happens in the `draw()` function (page.tsx:80-121):
+
+```tsx
+const draw = () => {
+  const { width, height, fontSize, columns } = canvasDimensionsRef.current;
+  
+  // 1. Create trail effect with semi-transparent black
+  ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+  ctx.fillRect(0, 0, width, height);
+
+  // 2. Update RGB animation time if enabled
+  if (isRgbModeRef.current) {
+    rgbEffectTimeRef.current = (rgbEffectTimeRef.current + 0.5) % 360;
+  }
+
+  // 3. Set font for character rendering
+  ctx.font = fontSize + "px monospace";
+  const currentSpeed = speedRef.current;
+
+  // 4. Render each column
+  for (let i = 0; i < columns; i++) {
+    if (dropsRef.current.length <= i) continue;
+
+    // 5. Pick random character
+    const text = characters.charAt(
+      Math.floor(Math.random() * characters.length)
+    );
+
+    // 6. Calculate color (RGB mode or static)
+    if (isRgbModeRef.current) {
+      const hue = (dropsRef.current[i] * 2 + rgbEffectTimeRef.current) % 360;
+      ctx.fillStyle = `hsl(${hue < 0 ? hue + 360 : hue}, 100%, 50%)`;
+    } else {
+      ctx.fillStyle = colorRef.current;
+    }
+
+    // 7. Draw character
+    ctx.fillText(text, i * fontSize, dropsRef.current[i] * fontSize);
+
+    // 8. Update drop position
+    if (isFallingDownRef.current) {
+      dropsRef.current[i] += currentSpeed;
+      // Reset when off screen (with 2.5% probability)
+      if (dropsRef.current[i] * fontSize > height && Math.random() > 0.975) {
+        dropsRef.current[i] = 0;
+      }
+    } else {
+      dropsRef.current[i] -= currentSpeed;
+      if (dropsRef.current[i] * fontSize < 0 && Math.random() > 0.975) {
+        dropsRef.current[i] = height / fontSize;
+      }
+    }
+  }
+  
+  // 9. Schedule next frame
+  animationFrameId = requestAnimationFrame(draw);
+};
+
+draw();
+```
+
+### Trail effect technique
+
+The iconic "trailing" effect is achieved by overlaying semi-transparent black:
+
+```tsx
+ctx.fillStyle = "rgba(0, 0, 0, 0.05)"; // 5% opacity
+ctx.fillRect(0, 0, width, height);
+```
+
+<CodeGroup>
+
+```tsx Full clear (no trail)
+ctx.fillStyle = "rgba(0, 0, 0, 1.0)"; // 100% opacity
+ctx.fillRect(0, 0, width, height);
+// Result: No trail, characters disappear immediately
+```
+
+```tsx Subtle trail (Matrix style)
+ctx.fillStyle = "rgba(0, 0, 0, 0.05)"; // 5% opacity
+ctx.fillRect(0, 0, width, height);
+// Result: Long, smooth trailing effect
+```
+
+```tsx Heavy trail
+ctx.fillStyle = "rgba(0, 0, 0, 0.01)"; // 1% opacity
+ctx.fillRect(0, 0, width, height);
+// Result: Very long trails, slower fade
+```
+
+</CodeGroup>
+
+### RGB rainbow mode
+
+RGB mode uses HSL color with animated hue:
+
+```tsx
+if (isRgbModeRef.current) {
+  // Time component cycles 0-360 degrees
+  rgbEffectTimeRef.current = (rgbEffectTimeRef.current + 0.5) % 360;
+  
+  // Each drop has offset based on position + time
+  const hue = (dropsRef.current[i] * 2 + rgbEffectTimeRef.current) % 360;
+  ctx.fillStyle = `hsl(${hue < 0 ? hue + 360 : hue}, 100%, 50%)`;
+}
+```
+
+This creates:
+- **Vertical color gradients** - Each drop position affects hue
+- **Animated rainbow wave** - Time offset animates the gradient
+- **Smooth transitions** - HSL ensures smooth color progression
+
+## CharCam rendering
+
+### Dual-canvas architecture
+
+CharCam uses two canvases for optimal performance (chars/page.tsx:20-23):
+
+```tsx
+const videoRef = useRef<HTMLVideoElement>(null);
+const outputCanvasRef = useRef<HTMLCanvasElement>(null);      // Visible
+const processingCanvasRef = useRef<HTMLCanvasElement>(null);  // Hidden
+```
+
+<Steps>
+
+<Step title="Processing canvas (hidden)">
+Low-resolution canvas for pixel analysis:
+
+```tsx
+// Dimensions match grid size
+processingCanvas.width = gridCols;   // e.g., 100
+processingCanvas.height = gridRows;  // e.g., 75
+
+// Hidden from view
+<canvas ref={processingCanvasRef} style={{ display: "none" }} />
+```
+
+This canvas:
+- Draws downsampled video frame
+- Provides fast `getImageData()` access
+- Minimizes pixel processing overhead
+</Step>
+
+<Step title="Output canvas (visible)">
+High-resolution canvas for character rendering:
+
+```tsx
+// Dimensions are grid size × font size
+outputCanvas.width = gridCols * charFontSize;   // e.g., 100 × 14 = 1400
+outputCanvas.height = gridRows * charFontSize;  // e.g., 75 × 14 = 1050
+
+// Visible with styling
+<canvas ref={outputCanvasRef} 
+        className="border border-green-700 shadow-lg" />
+```
+
+This canvas:
+- Renders high-quality text characters
+- Displays final ASCII art
+- Uses trail effect for motion blur
+</Step>
+
+</Steps>
+
+### Webcam integration
+
+Video capture setup (chars/page.tsx:132-165):
+
+```tsx
+const stream = await navigator.mediaDevices.getUserMedia({
+  video: {
+    width: { ideal: 320 },
+    height: { ideal: 240 },
+  },
+  audio: false,
+});
+
+if (videoRef.current) {
+  videoRef.current.srcObject = stream;
+  videoRef.current.onloadedmetadata = () => {
+    if (videoRef.current) videoRef.current.play();
+    // Start animation loop
+    animationFrameIdRef.current = requestAnimationFrame(drawCharacterArt);
+  };
+}
+```
+
+<Note>
+**Low resolution intentional**: The 320×240 video resolution is intentionally low to:
+- Reduce bandwidth and processing
+- Match the low-resolution ASCII art grid
+- Improve performance on mobile devices
+</Note>
+
+### Character art rendering loop
+
+The `drawCharacterArt()` function (chars/page.tsx:66-128):
+
+<Steps>
+
+<Step title="Validate state">
+Ensure video and canvases are ready:
+
+```tsx
+if (
+  !videoRef.current ||
+  !outputCanvasRef.current ||
+  !processingCanvasRef.current ||
+  videoRef.current.paused ||
+  videoRef.current.ended ||
+  videoRef.current.videoWidth === 0 ||
+  gridCols === 0 ||
+  gridRows === 0
+) {
+  // Skip this frame, try again next frame
+  animationFrameIdRef.current = requestAnimationFrame(drawCharacterArt);
+  return;
+}
+```
+</Step>
+
+<Step title="Get contexts with hints">
+Use `willReadFrequently` for pixel reading optimization:
+
+```tsx
+const outputCtx = outputCanvasRef.current.getContext("2d", { 
+  willReadFrequently: true 
+});
+const processingCtx = processingCanvasRef.current.getContext("2d", { 
+  willReadFrequently: true 
+});
+```
+
+<Tip>
+The `willReadFrequently` hint tells the browser to optimize for pixel access, preventing expensive GPU-CPU transfers.
+</Tip>
+</Step>
+
+<Step title="Downsample video frame">
+Draw video to small processing canvas:
+
+```tsx
+// Draw full video frame to tiny canvas
+processingCtx.drawImage(videoRef.current, 0, 0, gridCols, gridRows);
+```
+
+This automatically downsamples the video:
+- Input: 320×240 video frame
+- Output: ~100×75 pixel grid
+- Browser handles interpolation
+</Step>
+
+<Step title="Extract pixel data">
+Get brightness values for each grid cell:
+
+```tsx
+const imageData = processingCtx.getImageData(0, 0, gridCols, gridRows);
+const data = imageData.data; // RGBA array: [r,g,b,a, r,g,b,a, ...]
+```
+</Step>
+
+<Step title="Apply fade effect">
+Create motion blur trail:
+
+```tsx
+outputCtx.fillStyle = "rgba(0, 0, 0, 0.25)"; // 25% opacity
+outputCtx.fillRect(0, 0, outputCanvasRef.current.width, outputCanvasRef.current.height);
+```
+</Step>
+
+<Step title="Set text rendering properties">
+Configure character drawing:
+
+```tsx
+outputCtx.fillStyle = "#00FF00";              // Matrix green
+outputCtx.font = `${charFontSize}px monospace`;
+outputCtx.textAlign = "center";               // Center in grid cell
+outputCtx.textBaseline = "middle";            // Vertical center
+```
+</Step>
+
+<Step title="Render character grid">
+Loop through pixels and draw characters:
+
+```tsx
+for (let y = 0; y < gridRows; y++) {
+  for (let x = 0; x < gridCols; x++) {
+    // Calculate pixel index in RGBA array
+    const i = (y * gridCols + x) * 4;
+    
+    // Extract RGB values
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    
+    // Calculate brightness (0-1)
+    const brightness = (r + g + b) / 3 / 255;
+
+    // Only draw if pixel is bright enough
+    if (brightness > 0.2) {
+      const char = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
+      outputCtx.fillText(
+        char,
+        x * charFontSize + charFontSize / 2,  // Center X
+        y * charFontSize + charFontSize / 2   // Center Y
+      );
+    }
+  }
+}
+```
+</Step>
+
+<Step title="Schedule next frame">
+Continue the animation loop:
+
+```tsx
+animationFrameIdRef.current = requestAnimationFrame(drawCharacterArt);
+```
+</Step>
+
+</Steps>
+
+### Brightness-based character selection
+
+The current implementation uses a simple threshold:
+
+```tsx
+const brightness = (r + g + b) / 3 / 255; // 0.0 to 1.0
+
+if (brightness > 0.2) {
+  // Draw random character
+  const char = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
+  outputCtx.fillText(char, x, y);
+}
+// Else: draw nothing (appears as black)
+```
+
+<Tip>
+**Enhancement opportunity**: Map brightness to character density:
+
+```tsx
+const chars = " .:-=+*#%@"; // Ordered by visual density
+const index = Math.floor(brightness * (chars.length - 1));
+const char = chars[index];
+```
+
+This creates more nuanced ASCII art with grayscale representation.
+</Tip>
+
+## Performance optimizations
+
+### requestAnimationFrame timing
+
+Both effects use `requestAnimationFrame` for optimal performance:
+
+```tsx
+let animationFrameId: number;
+
+const draw = () => {
+  // Rendering logic
+  animationFrameId = requestAnimationFrame(draw);
+};
+
+draw();
+
+// Cleanup
+return () => cancelAnimationFrame(animationFrameId);
+```
+
+Benefits:
+- **Syncs with display refresh** - Typically 60fps
+- **Automatic throttling** - Pauses when tab is hidden
+- **Battery efficient** - Browser optimizes timing
+
+### Ref-based state for animation
+
+Using refs prevents re-renders during animation:
+
+```tsx
+// ❌ BAD: Causes re-render on every speed change
+const [speed, setSpeed] = useState(1.0);
+const draw = () => {
+  drops[i] += speed; // Stale closure problem!
+};
+
+// ✅ GOOD: No re-render, always current value
+const speedRef = useRef(1.0);
+const draw = () => {
+  drops[i] += speedRef.current; // Always current!
+};
+```
+
+### Context optimization flags
+
+When frequently reading pixels, use `willReadFrequently`:
+
+```tsx
+const ctx = canvas.getContext("2d", { willReadFrequently: true });
+```
+
+This tells the browser:
+- Don't optimize for GPU rendering
+- Optimize for CPU pixel access
+- Prevents expensive GPU→CPU transfers
+
+### Downsampling strategy
+
+CharCam downsamples video to reduce processing:
+
+```tsx
+// Video: 320×240 = 76,800 pixels
+// Grid: 100×75 = 7,500 pixels
+// Reduction: ~90% fewer pixels to process!
+
+processingCtx.drawImage(videoRef.current, 0, 0, gridCols, gridRows);
+```
+
+### Minimal character set
+
+CharCam uses a reduced character set for better performance:
+
+```tsx
+const CHARACTERS = "!\"#$%&'()*+,-./:;<=>?@[\\]"; // 24 characters
+```
+
+Benefits:
+- Faster random selection
+- More consistent visual density
+- Better artistic control
+
+### Mobile font size optimization
+
+Smaller fonts on mobile reduce character count:
+
+```tsx
+const getCharFontSize = () => {
+  if (window.innerWidth < 768) return 10; // Mobile
+  return 14; // Desktop
+};
+
+// Mobile: ~960 characters (960px ÷ 10)
+// Desktop: ~685 characters (960px ÷ 14)
+```
+
+## Responsive canvas handling
+
+### Window resize handling
+
+Both pages handle window resize events (page.tsx:125-139):
+
+```tsx
+const handleResize = () => {
+  // Update dimension refs
+  canvasDimensionsRef.current.width = window.innerWidth;
+  canvasDimensionsRef.current.height = window.innerHeight;
+  canvasDimensionsRef.current.columns = Math.floor(
+    canvasDimensionsRef.current.width / canvasDimensionsRef.current.fontSize
+  );
+  
+  // Resize canvas element
+  if (canvasRef.current) {
+    canvasRef.current.width = canvasDimensionsRef.current.width;
+    canvasRef.current.height = canvasDimensionsRef.current.height;
+  }
+  
+  // Reinitialize if column count changed
+  const newColumns = Math.floor(
+    window.innerWidth / canvasDimensionsRef.current.fontSize
+  );
+  if (newColumns !== canvasDimensionsRef.current.columns) {
+    initializeDrops();
+  }
+};
+
+window.addEventListener("resize", handleResize);
+```
+
+<Note>
+**Important**: Setting `canvas.width` or `canvas.height` clears the canvas. Always redraw after resize.
+</Note>
+
+### Mobile-specific adjustments
+
+CharCam uses responsive grid calculation:
+
+```tsx
+const updateCanvasDimensions = useCallback(() => {
+  const currentFontSize = getCharFontSize();
+  setCharFontSize(currentFontSize);
+
+  const newCols = Math.floor(window.innerWidth / currentFontSize);
+  const availableHeight = window.innerHeight - VERTICAL_OFFSET;
+  const newRows = Math.floor(availableHeight / currentFontSize);
+
+  setGridCols(newCols > 0 ? newCols : 1);
+  setGridRows(newRows > 0 ? newRows : 1);
+}, []);
+```
+
+## Advanced techniques
+
+### Text rendering options
+
+Canvas provides precise text control:
+
+```tsx
+// Font configuration
+ctx.font = "16px monospace";          // Size and family
+ctx.textAlign = "center";             // Horizontal alignment
+ctx.textBaseline = "middle";          // Vertical alignment
+
+// Rendering
+ctx.fillStyle = "#00FF00";
+ctx.fillText("A", x, y);              // Solid fill
+ctx.strokeText("A", x, y);            // Outline only
+```
+
+### Color space options
+
+<CodeGroup>
+
+```tsx RGB (hex)
+ctx.fillStyle = "#00FF00";          // Matrix green
+ctx.fillStyle = "#FF0000";          // Red
+```
+
+```tsx RGBA (transparency)
+ctx.fillStyle = "rgba(0, 255, 0, 0.5)";  // 50% transparent green
+ctx.fillStyle = "rgba(0, 0, 0, 0.05)";   // 5% transparent black (trails)
+```
+
+```tsx HSL (hue-based)
+ctx.fillStyle = `hsl(${hue}, 100%, 50%)`; // Rainbow effect
+ctx.fillStyle = "hsl(120, 100%, 50%)";    // Green
+```
+
+</CodeGroup>
+
+### Cleanup best practices
+
+Always clean up Canvas animations:
+
+```tsx
+useEffect(() => {
+  let animationFrameId: number;
+  const ctx = canvas.getContext("2d");
+  
+  const draw = () => {
+    // Render logic
+    animationFrameId = requestAnimationFrame(draw);
+  };
+  
+  draw();
+  
+  // Critical: Cancel animation on unmount
+  return () => {
+    cancelAnimationFrame(animationFrameId);
+    
+    // Stop video streams
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+    }
+  };
+}, []);
+```
+
+<Tip>
+Forget to cancel animation frames = memory leak and continued CPU usage even after component unmounts!
+</Tip>
+
+## Common patterns
+
+### Full-screen canvas
+
+```tsx
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// CSS
+<canvas style={{ display: "block", background: "#000" }} />
+```
+
+### Grid-based rendering
+
+```tsx
+const fontSize = 16;
+const cols = Math.floor(canvas.width / fontSize);
+const rows = Math.floor(canvas.height / fontSize);
+
+for (let y = 0; y < rows; y++) {
+  for (let x = 0; x < cols; x++) {
+    ctx.fillText(char, x * fontSize, y * fontSize);
+  }
+}
+```
+
+### Random character selection
+
+```tsx
+const characters = "ABC123";
+const randomChar = characters.charAt(
+  Math.floor(Math.random() * characters.length)
+);
+```
+
+### Probabilistic reset
+
+```tsx
+// 2.5% chance to reset each frame
+if (Math.random() > 0.975) {
+  drop = 0;
+}
+```
+
+## Debugging Canvas issues
+
+### Common problems and solutions
+
+**Canvas is blank:**
+- Check if `canvas.width` and `canvas.height` are set
+- Verify context is not null
+- Ensure `fillStyle` is set before drawing
+- Check if animation loop is running
+
+**Performance issues:**
+- Reduce canvas resolution
+- Limit `getImageData()` calls
+- Use `willReadFrequently` hint
+- Profile with Chrome DevTools
+
+**Text not rendering:**
+- Verify font is loaded
+- Check `textAlign` and `textBaseline` settings
+- Ensure coordinates are within canvas bounds
+- Confirm `fillStyle` opacity is > 0
+
+**Memory leaks:**
+- Cancel all animation frames on unmount
+- Stop media streams
+- Remove event listeners
+
+### Debug visualization
+
+Add visual debugging to your canvas:
+
+```tsx
+// Draw grid lines
+ctx.strokeStyle = "rgba(255, 0, 0, 0.3)";
+for (let x = 0; x < cols; x++) {
+  ctx.beginPath();
+  ctx.moveTo(x * fontSize, 0);
+  ctx.lineTo(x * fontSize, height);
+  ctx.stroke();
+}
+
+// Show frame rate
+let lastTime = performance.now();
+const draw = () => {
+  const now = performance.now();
+  const fps = 1000 / (now - lastTime);
+  lastTime = now;
+  
+  ctx.fillStyle = "white";
+  ctx.fillText(`FPS: ${fps.toFixed(1)}`, 10, 20);
+};
+```

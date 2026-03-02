@@ -1,0 +1,327 @@
+---
+title: Architecture
+description: Project structure, tech stack, and design decisions for Matrix Rain & CharCam
+---
+
+## Overview
+
+Matrix Rain & CharCam is a modern web application built with Next.js 15, featuring two interactive Canvas-based visual experiences: a customizable Matrix digital rain effect and a real-time ASCII art webcam renderer.
+
+## Tech stack
+
+### Core framework
+
+- **Next.js 15.3.2** - React framework with App Router
+- **React 19.0.0** - UI library with hooks and concurrent features
+- **TypeScript 5** - Type-safe development
+
+### Styling
+
+- **Tailwind CSS 4** - Utility-first CSS framework
+- **PostCSS** - CSS processing
+- **Geist Fonts** - Optimized fonts (Geist Sans and Geist Mono) from Vercel
+
+### Development tools
+
+- **ESLint 9** - Code linting with Next.js config
+- **Turbopack** - Fast development bundler (via `next dev --turbopack`)
+
+<Note>
+The project uses minimal dependencies, relying primarily on browser-native Canvas API and Web APIs for all visual effects and camera access.
+</Note>
+
+## Project structure
+
+The application follows Next.js App Router conventions:
+
+```
+src/
+└── app/
+    ├── page.tsx              # Matrix rain homepage
+    ├── chars/
+    │   └── page.tsx          # CharCam ASCII art page
+    ├── lorem/
+    │   └── page.tsx          # About page
+    ├── layout.tsx            # Root layout with metadata
+    ├── globals.css           # Global styles
+    └── favicon.ico
+```
+
+### Route organization
+
+Each page is a self-contained client component with its own Canvas implementation:
+
+- `/` - Matrix digital rain effect
+- `/chars` - Real-time webcam ASCII art renderer
+- `/lorem` - Project information and about page
+
+## Design decisions
+
+### Client-side rendering
+
+Both main features use `"use client"` directive because they require:
+
+- Browser APIs (Canvas, requestAnimationFrame, MediaDevices)
+- React hooks (useRef, useState, useEffect, useCallback)
+- Real-time DOM manipulation
+- Event listeners (resize, video playback)
+
+```tsx
+"use client";
+
+import { useEffect, useRef, useState, useCallback } from "react";
+```
+
+### State management approach
+
+The application uses a **ref-based pattern** for performance-critical values:
+
+<CodeGroup>
+
+```tsx Matrix rain state
+const [sliderValue, setSliderValue] = useState(100);
+const speedRef = useRef(1.0);
+
+useEffect(() => {
+  speedRef.current = sliderValue / 100.0;
+}, [sliderValue]);
+```
+
+```tsx CharCam state
+const videoRef = useRef<HTMLVideoElement>(null);
+const outputCanvasRef = useRef<HTMLCanvasElement>(null);
+const processingCanvasRef = useRef<HTMLCanvasElement>(null);
+const animationFrameIdRef = useRef<number | null>(null);
+```
+
+</CodeGroup>
+
+<Tip>
+**Why use refs for animation values?**
+
+Using refs instead of state for values read in animation loops prevents unnecessary re-renders. The animation frame callback accesses `speedRef.current` directly, avoiding stale closures and re-render overhead.
+</Tip>
+
+### Dual-canvas architecture (CharCam)
+
+CharCam uses two canvases for optimal performance:
+
+1. **Processing canvas** (hidden) - Low-resolution frame capture
+   - Dimensions match grid size (e.g., 100x75 pixels)
+   - Used for `getImageData()` to analyze brightness
+   
+2. **Output canvas** (visible) - High-resolution character rendering
+   - Dimensions: `gridCols * fontSize × gridRows * fontSize`
+   - Renders final ASCII art
+
+```tsx
+// Processing: small, hidden, fast pixel access
+<canvas ref={processingCanvasRef} style={{ display: "none" }} />
+
+// Output: large, visible, high-quality text rendering
+<canvas ref={outputCanvasRef} className="border border-green-700" />
+```
+
+This separation allows:
+- Fast brightness sampling on small canvas
+- High-quality character rendering on large canvas
+- Reduced `getImageData()` overhead
+
+### Responsive canvas sizing
+
+Both implementations handle window resizing dynamically:
+
+<Steps>
+
+<Step title="Store dimensions in refs">
+Canvas dimensions are stored in refs to avoid re-renders during resize:
+
+```tsx
+const canvasDimensionsRef = useRef({
+  width: 0,
+  height: 0,
+  columns: 0,
+  fontSize: 16,
+});
+```
+</Step>
+
+<Step title="Update on resize events">
+Resize handler recalculates columns and re-initializes drops:
+
+```tsx
+const handleResize = () => {
+  canvasDimensionsRef.current.width = window.innerWidth;
+  canvasDimensionsRef.current.height = window.innerHeight;
+  canvasDimensionsRef.current.columns = Math.floor(
+    canvasDimensionsRef.current.width / canvasDimensionsRef.current.fontSize
+  );
+  // Update canvas dimensions and reinitialize
+};
+```
+</Step>
+
+<Step title="Clean up listeners">
+Event listeners are properly cleaned up in effect returns:
+
+```tsx
+window.addEventListener("resize", handleResize);
+
+return () => {
+  window.removeEventListener("resize", handleResize);
+  cancelAnimationFrame(animationFrameId);
+};
+```
+</Step>
+
+</Steps>
+
+### Character set design
+
+**Matrix Rain** uses an authentic Matrix-style character set:
+
+```tsx
+const katakana = "アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズヅブプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン";
+const latin = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const nums = "0123456789";
+const characters = katakana + latin + nums;
+```
+
+**CharCam** uses ASCII-like symbols for better art quality:
+
+```tsx
+const CHARACTERS = "!\"#$%&'()*+,-./:;<=>?@[\\]"; // Reduced set for performance
+```
+
+### Color management
+
+Matrix Rain supports three color modes:
+
+1. **Static color** - User-selected via color picker
+2. **RGB mode** - HSL-based rainbow effect with animation
+3. **Green default** - Classic Matrix green (#00FF00)
+
+```tsx
+if (isRgbModeRef.current) {
+  const hue = (dropsRef.current[i] * 2 + rgbEffectTimeRef.current) % 360;
+  ctx.fillStyle = `hsl(${hue < 0 ? hue + 360 : hue}, 100%, 50%)`;
+} else {
+  ctx.fillStyle = colorRef.current;
+}
+```
+
+## Performance optimizations
+
+### Animation frame management
+
+- Uses `requestAnimationFrame` for smooth 60fps rendering
+- Properly cancels animation frames on unmount
+- Skips processing when video is paused or not ready
+
+### Canvas context options
+
+CharCam uses `willReadFrequently` hint for optimized pixel access:
+
+```tsx
+const outputCtx = outputCanvasRef.current.getContext("2d", { 
+  willReadFrequently: true 
+});
+```
+
+### Trail effect technique
+
+Instead of clearing the canvas completely, both effects use semi-transparent fills:
+
+```tsx
+// Matrix Rain: subtle fade
+ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+ctx.fillRect(0, 0, width, height);
+
+// CharCam: faster fade
+outputCtx.fillStyle = "rgba(0, 0, 0, 0.25)";
+outputCtx.fillRect(0, 0, width, height);
+```
+
+This creates the characteristic "trailing" effect while maintaining performance.
+
+### Mobile-responsive font sizing
+
+CharCam adjusts character size based on viewport:
+
+```tsx
+const getCharFontSize = () => {
+  if (typeof window !== "undefined") {
+    if (window.innerWidth < 768) return 10; // Mobile
+  }
+  return 14; // Desktop
+};
+```
+
+## Styling architecture
+
+### Tailwind configuration
+
+The project uses Tailwind CSS 4 with PostCSS for processing. Global styles define theme variables:
+
+```css
+:root {
+  --background: #000000;
+  --foreground: #00ff00;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+```
+
+### Layout constraints
+
+The root layout prevents scrolling for immersive full-screen experiences:
+
+```css
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--background);
+}
+```
+
+### Component styling patterns
+
+UI controls use responsive Tailwind classes:
+
+```tsx
+<div className="absolute top-2 right-2 sm:top-4 sm:right-4 z-10 
+               p-2 sm:p-3 bg-black bg-opacity-60 rounded-lg 
+               text-white font-[family-name:var(--font-geist-mono)] 
+               shadow-lg flex flex-col gap-2 sm:gap-3">
+```
+
+## Browser API usage
+
+### Canvas API (page.tsx:60-147)
+
+Core rendering uses 2D context methods:
+- `fillRect()` - Background clearing
+- `fillText()` - Character rendering
+- `getImageData()` - Pixel brightness analysis (CharCam)
+
+### Media Devices API (chars/page.tsx:132-165)
+
+Webcam access with error handling:
+
+```tsx
+const stream = await navigator.mediaDevices.getUserMedia({
+  video: {
+    width: { ideal: 320 },
+    height: { ideal: 240 },
+  },
+  audio: false,
+});
+```
+
+### Window API
+
+- `window.innerWidth/innerHeight` - Viewport dimensions
+- `window.addEventListener('resize')` - Responsive updates
+- `requestAnimationFrame()` - Animation loop timing

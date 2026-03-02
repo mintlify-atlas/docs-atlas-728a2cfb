@@ -1,0 +1,332 @@
+---
+title: Installation
+description: Set up your development environment for Matrix Rain & CharCam
+---
+
+## Prerequisites
+
+Before installing the project, ensure you have the following installed on your system:
+
+### Node.js
+
+The project requires Node.js version 20 or higher:
+
+<CodeGroup>
+```bash Check version
+node --version
+```
+
+```bash Install with nvm (recommended)
+nvm install 20
+nvm use 20
+```
+
+```bash Install with Homebrew (macOS)
+brew install node@20
+```
+</CodeGroup>
+
+<Tip>
+  We recommend using [nvm](https://github.com/nvm-sh/nvm) (Node Version Manager) to manage multiple Node.js versions on your system.
+</Tip>
+
+### Package manager
+
+Choose one of the following package managers:
+
+<CardGroup cols={2}>
+  <Card title="npm" icon="npm">
+    Comes bundled with Node.js
+    ```bash
+    npm --version
+    ```
+  </Card>
+  <Card title="yarn" icon="yarn">
+    Install globally with npm
+    ```bash
+    npm install -g yarn
+    ```
+  </Card>
+  <Card title="pnpm" icon="box">
+    Fast, disk space efficient
+    ```bash
+    npm install -g pnpm
+    ```
+  </Card>
+  <Card title="bun" icon="rabbit">
+    All-in-one toolkit
+    ```bash
+    curl -fsSL https://bun.sh/install | bash
+    ```
+  </Card>
+</CardGroup>
+
+### Git
+
+Git is required to clone the repository:
+
+```bash
+git --version
+```
+
+If not installed, download from [git-scm.com](https://git-scm.com/).
+
+### Modern web browser
+
+The application requires a modern browser with support for:
+
+- **HTML5 Canvas API** - For rendering the Matrix rain effect
+- **WebRTC MediaDevices API** - For webcam access in CharCam
+- **ES6+ JavaScript** - Modern JavaScript features
+
+Supported browsers:
+- Chrome 90+
+- Firefox 88+
+- Safari 14+
+- Edge 90+
+
+<Note>
+  For the CharCam feature, you'll need to grant camera permissions in your browser.
+</Note>
+
+## Installation steps
+
+<Steps>
+  <Step title="Clone the repository">
+    Clone the project from your repository:
+
+    ```bash
+    git clone <repository-url>
+    cd <repository-folder>
+    ```
+
+    Replace `<repository-url>` with your actual repository URL.
+  </Step>
+
+  <Step title="Install dependencies">
+    Install all required packages using your preferred package manager:
+
+    <CodeGroup>
+    ```bash npm
+    npm install
+    ```
+
+    ```bash yarn
+    yarn install
+    ```
+
+    ```bash pnpm
+    pnpm install
+    ```
+
+    ```bash bun
+    bun install
+    ```
+    </CodeGroup>
+
+    This will install all dependencies from `package.json`:
+
+    ```json package.json
+    {
+      "dependencies": {
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+        "next": "15.3.2"
+      },
+      "devDependencies": {
+        "typescript": "^5",
+        "@types/node": "^20",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "@tailwindcss/postcss": "^4",
+        "tailwindcss": "^4",
+        "eslint": "^9",
+        "eslint-config-next": "15.3.2",
+        "@eslint/eslintrc": "^3"
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Verify installation">
+    Verify that all dependencies are installed correctly:
+
+    ```bash
+    npm list --depth=0
+    ```
+
+    You should see all the packages listed without any errors.
+  </Step>
+</Steps>
+
+## Project structure
+
+After installation, your project structure will look like this:
+
+```
+.
+├── src/
+│   └── app/
+│       ├── page.tsx           # Matrix Rain homepage
+│       ├── chars/
+│       │   └── page.tsx       # CharCam page
+│       ├── lorem/
+│       │   └── page.tsx       # About page
+│       ├── layout.tsx         # Root layout with fonts
+│       └── globals.css        # Global styles
+├── package.json               # Dependencies and scripts
+├── next.config.ts             # Next.js configuration
+├── tsconfig.json              # TypeScript configuration
+├── tailwind.config.ts         # Tailwind CSS configuration
+└── README.md                  # Project documentation
+```
+
+### Key files
+
+#### Root layout
+
+The `src/app/layout.tsx` file sets up the application-wide configuration:
+
+```tsx src/app/layout.tsx
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "Matrix Rain",
+  description: "A Matrix digital rain effect using Next.js and Canvas.",
+};
+```
+
+<Tip>
+  The application uses the Geist font family, optimized with `next/font` for automatic font optimization and zero layout shift.
+</Tip>
+
+## Available scripts
+
+The `package.json` includes the following scripts:
+
+### Development
+
+Start the development server with Turbopack:
+
+```bash
+npm run dev
+```
+
+This runs `next dev --turbopack` which provides:
+- Fast refresh for instant updates
+- Optimized development builds
+- Hot module replacement
+
+### Build
+
+Create an optimized production build:
+
+```bash
+npm run build
+```
+
+This runs `next build` which:
+- Compiles TypeScript to JavaScript
+- Optimizes and minifies code
+- Generates static pages where possible
+- Creates production-ready bundles
+
+### Production
+
+Start the production server:
+
+```bash
+npm run start
+```
+
+This runs `next start` to serve the production build.
+
+<Note>
+  You must run `npm run build` before `npm run start`.
+</Note>
+
+### Linting
+
+Run ESLint to check for code quality issues:
+
+```bash
+npm run lint
+```
+
+This uses the Next.js ESLint configuration to catch common issues.
+
+## Troubleshooting
+
+### Port already in use
+
+If port 3000 is already in use, you can specify a different port:
+
+```bash
+npm run dev -- -p 3001
+```
+
+### Camera permissions denied
+
+For the CharCam feature, ensure:
+
+1. You're accessing the site via `https://` or `localhost`
+2. Camera permissions are granted in browser settings
+3. No other application is using the camera
+
+### TypeScript errors
+
+If you encounter TypeScript errors, try:
+
+```bash
+# Remove node_modules and reinstall
+rm -rf node_modules package-lock.json
+npm install
+
+# Clear Next.js cache
+rm -rf .next
+npm run dev
+```
+
+### Module not found errors
+
+Ensure all dependencies are installed:
+
+```bash
+npm install
+```
+
+Check that you're using Node.js 20 or higher:
+
+```bash
+node --version
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Quickstart guide"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Learn how to run the application and explore its features
+  </Card>
+  <Card
+    title="Deploy to production"
+    icon="cloud"
+  >
+    Deploy your application to Vercel, Netlify, or your preferred hosting platform
+  </Card>
+</CardGroup>

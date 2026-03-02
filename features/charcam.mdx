@@ -1,0 +1,253 @@
+---
+title: CharCam ASCII webcam
+description: Real-time webcam feed converted to ASCII character art
+---
+
+CharCam transforms your webcam feed into real-time ASCII art using brightness-based character mapping. The feature creates a Matrix-style representation of your camera input.
+
+## How it works
+
+CharCam captures video from your webcam and converts each frame to ASCII characters based on pixel brightness values.
+
+### Camera setup
+
+The application requests camera access with optimized video constraints:
+
+```tsx
+const stream = await navigator.mediaDevices.getUserMedia({
+  video: {
+    width: { ideal: 320 },
+    height: { ideal: 240 },
+  },
+  audio: false,
+});
+```
+
+<Info>
+The ideal resolution of 320x240 is intentionally low to optimize performance. Higher resolutions would require more processing power for the character conversion.
+</Info>
+
+### Permission handling
+
+CharCam includes comprehensive error handling for camera permissions:
+
+```tsx
+try {
+  const stream = await navigator.mediaDevices.getUserMedia({...});
+  setHasPermission(true);
+} catch (err) {
+  if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+    setError("Camera permission denied. Please allow camera access in your browser settings.");
+  } else {
+    setError(`Error accessing camera: ${err.message}`);
+  }
+  setHasPermission(false);
+}
+```
+
+<Warning>
+Your browser will prompt you for camera access when you first visit CharCam. You must grant permission for the feature to work.
+</Warning>
+
+## Character rendering
+
+### Character set
+
+CharCam uses a reduced set of ASCII symbols optimized for visual clarity:
+
+```tsx
+const CHARACTERS = "!\"#$%&'()*+,-./:;<=>?@[\\]";
+```
+
+<Note>
+The character set is intentionally limited to improve performance and aesthetics. More characters would slow down rendering and create visual clutter.
+</Note>
+
+### Brightness algorithm
+
+Each pixel's brightness determines whether a character is rendered:
+
+```tsx
+for (let y = 0; y < gridRows; y++) {
+  for (let x = 0; x < gridCols; x++) {
+    const i = (y * gridCols + x) * 4;
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const brightness = (r + g + b) / 3 / 255;
+
+    if (brightness > 0.2) {
+      const char = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
+      outputCtx.fillText(
+        char,
+        x * charFontSize + charFontSize / 2,
+        y * charFontSize + charFontSize / 2
+      );
+    }
+  }
+}
+```
+
+<Accordion title="Brightness calculation explained">
+  The brightness value is calculated by:
+  1. **Averaging RGB values**: `(r + g + b) / 3`
+  2. **Normalizing to 0-1 range**: Dividing by 255
+  3. **Threshold check**: Only pixels with brightness > 0.2 render characters
+  
+  This creates a high-contrast effect where darker areas remain empty.
+</Accordion>
+
+## Rendering process
+
+CharCam uses a dual-canvas approach for efficient processing:
+
+### Processing canvas
+
+A hidden canvas downsamples the video feed to match the character grid:
+
+```tsx
+<canvas ref={processingCanvasRef} style={{ display: "none" }} />
+```
+
+```tsx
+// Set dimensions to grid size
+processingCanvas.width = gridCols;
+processingCanvas.height = gridRows;
+
+// Draw video at reduced resolution
+processingCtx.drawImage(videoRef.current, 0, 0, gridCols, gridRows);
+
+// Extract pixel data
+imageData = processingCtx.getImageData(0, 0, gridCols, gridRows);
+```
+
+### Output canvas
+
+The visible canvas displays the final ASCII art:
+
+```tsx
+// Set dimensions to actual display size
+outputCanvas.width = gridCols * charFontSize;
+outputCanvas.height = gridRows * charFontSize;
+
+// Configure character rendering
+outputCtx.fillStyle = "#00FF00";
+outputCtx.font = `${charFontSize}px monospace`;
+outputCtx.textAlign = "center";
+outputCtx.textBaseline = "middle";
+```
+
+<Info>
+The processing canvas is 1 pixel per character, while the output canvas is sized based on font dimensions. This separation optimizes performance by reducing the number of pixels to analyze.
+</Info>
+
+## Responsive design
+
+CharCam adapts to different screen sizes with dynamic font sizing and grid calculations.
+
+### Font size adaptation
+
+```tsx
+const getCharFontSize = () => {
+  if (typeof window !== "undefined") {
+    if (window.innerWidth < 768) return 10; // Smaller font for mobile
+  }
+  return 14; // Default font size
+};
+```
+
+<Tabs>
+  <Tab title="Desktop">
+    Uses 14px monospace font for optimal character density and readability.
+  </Tab>
+  <Tab title="Mobile">
+    Uses 10px monospace font to fit more characters on smaller screens.
+  </Tab>
+</Tabs>
+
+### Grid calculation
+
+```tsx
+const updateCanvasDimensions = useCallback(() => {
+  const currentFontSize = getCharFontSize();
+  setCharFontSize(currentFontSize);
+
+  const newCols = Math.floor(window.innerWidth / currentFontSize);
+  const availableHeight = window.innerHeight - VERTICAL_OFFSET;
+  const newRows = Math.floor(availableHeight / currentFontSize);
+
+  setGridCols(newCols > 0 ? newCols : 1);
+  setGridRows(newRows > 0 ? newRows : 1);
+}, []);
+```
+
+The grid automatically recalculates on window resize to maintain proper aspect ratio.
+
+## Performance optimizations
+
+### Frame-by-frame rendering
+
+```tsx
+const drawCharacterArt = useCallback(() => {
+  // Safety checks
+  if (
+    !videoRef.current ||
+    videoRef.current.paused ||
+    videoRef.current.ended ||
+    videoRef.current.videoWidth === 0 ||
+    gridCols === 0 ||
+    gridRows === 0
+  ) {
+    animationFrameIdRef.current = requestAnimationFrame(drawCharacterArt);
+    return;
+  }
+  
+  // Rendering logic...
+  
+  animationFrameIdRef.current = requestAnimationFrame(drawCharacterArt);
+}, [gridCols, gridRows, charFontSize]);
+```
+
+### Context optimization
+
+```tsx
+const outputCtx = outputCanvasRef.current.getContext("2d", { 
+  willReadFrequently: true 
+});
+const processingCtx = processingCanvasRef.current.getContext("2d", { 
+  willReadFrequently: true 
+});
+```
+
+<Note>
+The `willReadFrequently: true` flag optimizes canvas contexts for frequent `getImageData()` calls, improving performance significantly.
+</Note>
+
+### Fade trail effect
+
+```tsx
+outputCtx.fillStyle = "rgba(0, 0, 0, 0.25)";
+outputCtx.fillRect(0, 0, outputCanvasRef.current.width, outputCanvasRef.current.height);
+```
+
+Instead of clearing the canvas completely, a semi-transparent overlay creates smooth motion trails.
+
+## Resource cleanup
+
+CharCam properly cleans up resources when unmounting:
+
+```tsx
+return () => {
+  if (animationFrameIdRef.current) {
+    cancelAnimationFrame(animationFrameIdRef.current);
+  }
+  if (videoRef.current && videoRef.current.srcObject) {
+    const stream = videoRef.current.srcObject as MediaStream;
+    stream.getTracks().forEach((track) => track.stop());
+  }
+};
+```
+
+<Warning>
+Failing to stop media tracks can cause the camera indicator to remain active even after leaving the page. This cleanup ensures proper resource management.
+</Warning>

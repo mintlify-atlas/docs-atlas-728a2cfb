@@ -1,0 +1,180 @@
+---
+title: Matrix rain effect
+description: Animated falling characters with customizable appearance and behavior
+---
+
+The Matrix rain effect is the core feature of this project, creating an iconic cascading character animation inspired by The Matrix film series.
+
+## How it works
+
+The effect uses HTML5 Canvas API to render animated columns of characters falling down (or up) the screen. Each column independently animates at the configured speed, creating a mesmerizing digital rain effect.
+
+### Character set
+
+The animation uses a combination of three character sets:
+
+- **Katakana** - Japanese characters for authentic Matrix aesthetic
+- **Latin** - A-Z uppercase letters
+- **Numbers** - 0-9 digits
+
+```tsx
+const katakana = "アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズヅブプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン";
+const latin = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const nums = "0123456789";
+const characters = katakana + latin + nums;
+```
+
+### Rendering algorithm
+
+The effect uses a fade trail technique to create the iconic trailing effect:
+
+```tsx
+// Semi-transparent black overlay creates the fade trail
+ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+ctx.fillRect(0, 0, width, height);
+```
+
+Each frame:
+1. Draws a semi-transparent black rectangle over the entire canvas
+2. Randomly selects characters from the character set
+3. Renders characters at their current positions
+4. Updates drop positions based on speed and direction
+
+<Note>
+The fade effect uses `rgba(0, 0, 0, 0.05)` which creates smooth trails. Lower alpha values create longer trails.
+</Note>
+
+## Customization options
+
+The Matrix rain effect includes several real-time customization controls.
+
+### Speed control
+
+Adjust the animation speed from 10% to 300% of the default speed.
+
+```tsx
+const [sliderValue, setSliderValue] = useState(100);
+const speedRef = useRef(1.0);
+
+useEffect(() => {
+  speedRef.current = sliderValue / 100.0;
+}, [sliderValue]);
+```
+
+<Tabs>
+  <Tab title="Slow (10%)">
+    Creates a gentle, meditative rain effect perfect for background ambiance.
+  </Tab>
+  <Tab title="Normal (100%)">
+    The default speed that balances visual appeal with readability.
+  </Tab>
+  <Tab title="Fast (300%)">
+    Creates an intense, rapid cascade effect for maximum visual impact.
+  </Tab>
+</Tabs>
+
+### Color customization
+
+Choose any color for your characters using the color picker, or enable RGB mode for dynamic rainbow effects.
+
+#### Static color mode
+
+```tsx
+const [characterColor, setCharacterColor] = useState("#00FF00");
+const colorRef = useRef("#00FF00");
+
+ctx.fillStyle = colorRef.current;
+```
+
+The default color is `#00FF00` (classic Matrix green), but you can select any color using the color picker control.
+
+#### RGB mode
+
+Enable RGB mode for a dynamic rainbow effect where each column cycles through the color spectrum:
+
+```tsx
+if (isRgbModeRef.current) {
+  const hue = (dropsRef.current[i] * 2 + rgbEffectTimeRef.current) % 360;
+  ctx.fillStyle = `hsl(${hue < 0 ? hue + 360 : hue}, 100%, 50%)`;
+} else {
+  ctx.fillStyle = colorRef.current;
+}
+```
+
+<Info>
+RGB mode uses HSL color space to create smooth color transitions. The hue value is calculated based on the drop position and a time offset that increments by 0.5 each frame.
+</Info>
+
+### Direction toggle
+
+Switch between falling down (default) and rising up animations.
+
+```tsx
+const [isFallingDown, setIsFallingDown] = useState(true);
+
+if (isFallingDownRef.current) {
+  dropsRef.current[i] += currentSpeed;
+  if (dropsRef.current[i] * fontSize > height && Math.random() > 0.975) {
+    dropsRef.current[i] = 0;
+  }
+} else {
+  dropsRef.current[i] -= currentSpeed;
+  if (dropsRef.current[i] * fontSize < 0 && Math.random() > 0.975) {
+    dropsRef.current[i] = height / fontSize;
+  }
+}
+```
+
+<Accordion title="Technical details">
+  When direction changes, the drops are reinitialized with positions appropriate for the new direction:
+  - **Falling down**: Drops start above the viewport with negative Y positions
+  - **Rising up**: Drops start below the viewport with Y positions greater than the canvas height
+  
+  This prevents visual glitches when toggling direction mid-animation.
+</Accordion>
+
+## Performance considerations
+
+The effect is optimized for smooth performance:
+
+- Uses `requestAnimationFrame` for efficient rendering
+- Stores canvas dimensions in refs to avoid recalculations
+- Handles window resize events to maintain full-screen coverage
+- Uses a fixed font size of 16px for consistent rendering
+
+```tsx
+const draw = () => {
+  // Rendering logic...
+  animationFrameId = requestAnimationFrame(draw);
+};
+```
+
+<Warning>
+On mobile devices or lower-end hardware, running at 300% speed with RGB mode enabled may impact performance. Consider reducing speed or disabling RGB mode if you experience frame drops.
+</Warning>
+
+## Responsive design
+
+The canvas automatically adjusts to viewport changes:
+
+```tsx
+const handleResize = () => {
+  canvasDimensionsRef.current.width = window.innerWidth;
+  canvasDimensionsRef.current.height = window.innerHeight;
+  canvasDimensionsRef.current.columns = Math.floor(
+    canvasDimensionsRef.current.width / canvasDimensionsRef.current.fontSize
+  );
+  if (canvasRef.current) {
+    canvasRef.current.width = canvasDimensionsRef.current.width;
+    canvasRef.current.height = canvasDimensionsRef.current.height;
+  }
+  const newColumns = Math.floor(window.innerWidth / canvasDimensionsRef.current.fontSize);
+  if (newColumns !== canvasDimensionsRef.current.columns) {
+    initializeDrops();
+  }
+};
+
+window.addEventListener("resize", handleResize);
+```
+
+When the number of columns changes due to resizing, the drops are reinitialized to prevent visual artifacts.

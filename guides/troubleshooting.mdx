@@ -1,0 +1,317 @@
+---
+title: Troubleshooting
+description: Common issues and solutions for the Matrix Rain & CharCam project
+---
+
+This guide helps you resolve common issues when developing or deploying the application.
+
+## Camera and permissions
+
+The CharCam feature requires camera access, which can cause several issues.
+
+### Camera permission denied
+
+<Accordion title="Browser blocks camera access">
+  **Problem**: Error message "Camera permission denied" appears on `/chars` page.
+
+  **Cause**: User denied permission or browser blocked the request.
+
+  **Solution**:
+  1. Check the address bar for a camera icon and click to allow permissions
+  2. In Chrome: Settings → Privacy and Security → Site Settings → Camera
+  3. In Firefox: Preferences → Privacy & Security → Permissions → Camera
+  4. In Safari: Preferences → Websites → Camera
+  
+  Make sure the site URL is allowed to access the camera.
+</Accordion>
+
+<Accordion title="Camera access only works on localhost">
+  **Problem**: Camera works locally but not on deployed site.
+
+  **Cause**: `navigator.mediaDevices.getUserMedia()` requires HTTPS in production.
+
+  **Solution**:
+  - Deploy to platforms with automatic HTTPS (Vercel, Netlify)
+  - For custom hosting, configure SSL certificates
+  - Test locally using `https://localhost` with self-signed certificate
+
+  <Warning>
+  Never deploy the CharCam feature over plain HTTP in production. It will not work.
+  </Warning>
+</Accordion>
+
+<Accordion title="No camera found error">
+  **Problem**: Browser says no camera is available.
+
+  **Cause**: No physical camera connected or camera in use by another application.
+
+  **Solution**:
+  1. Verify camera is connected (for external webcams)
+  2. Close other applications using the camera (Zoom, Teams, etc.)
+  3. Restart the browser
+  4. Check device manager (Windows) or system preferences (macOS) to ensure camera is recognized
+</Accordion>
+
+### Camera performance issues
+
+<Accordion title="CharCam is laggy or slow">
+  **Problem**: ASCII art rendering has low frame rate or stutters.
+
+  **Cause**: Large canvas size or high-resolution video processing.
+
+  **Solution**:
+  The code already implements optimizations in `src/app/chars/page.tsx`:
+  - Low resolution video (`320x240`) at line 136-137
+  - Reduced character set at line 6
+  - Dynamic font sizing based on screen width at line 9-14
+  - Efficient rendering with `requestAnimationFrame` at line 128
+
+  Additional optimizations:
+  ```typescript
+  // Reduce character set further
+  const CHARACTERS = "!@#$%"; // Fewer characters = faster
+
+  // Lower video resolution
+  video: {
+    width: { ideal: 160 },
+    height: { ideal: 120 },
+  }
+  ```
+</Accordion>
+
+## Build and deployment issues
+
+### Build errors
+
+<Accordion title="Type errors during build">
+  **Problem**: `npm run build` fails with TypeScript errors.
+
+  **Cause**: Strict TypeScript settings or missing type definitions.
+
+  **Solution**:
+  1. Run `npm run lint` to see all errors
+  2. Fix type errors or add type assertions
+  3. Check `tsconfig.json` - `strict: true` enforces strict typing
+  
+  To temporarily bypass (not recommended):
+  ```json
+  {
+    "compilerOptions": {
+      "strict": false
+    }
+  }
+  ```
+</Accordion>
+
+<Accordion title="Module not found errors">
+  **Problem**: Build fails with "Cannot find module" errors.
+
+  **Cause**: Missing dependencies or incorrect imports.
+
+  **Solution**:
+  ```bash
+  # Clear node_modules and reinstall
+  rm -rf node_modules package-lock.json
+  npm install
+
+  # Clear Next.js cache
+  rm -rf .next
+  npm run build
+  ```
+  
+  Verify all imports use correct paths:
+  - Pages: `src/app/*/page.tsx`
+  - Components: Relative imports or `@/*` alias (configured in `tsconfig.json:22`)
+</Accordion>
+
+<Accordion title="Out of memory during build">
+  **Problem**: Build process crashes with heap out of memory error.
+
+  **Cause**: Insufficient memory allocation for Node.js.
+
+  **Solution**:
+  Increase Node.js memory limit:
+  ```json
+  {
+    "scripts": {
+      "build": "NODE_OPTIONS='--max-old-space-size=4096' next build"
+    }
+  }
+  ```
+</Accordion>
+
+### Deployment issues
+
+<Accordion title="Application won't start in production">
+  **Problem**: `npm start` fails or returns errors.
+
+  **Cause**: Build not completed or missing production dependencies.
+
+  **Solution**:
+  ```bash
+  # Ensure build is complete
+  npm run build
+
+  # Install production dependencies only
+  npm ci --production=false
+
+  # Start production server
+  npm start
+  ```
+  
+  Verify `.next` directory exists after build.
+</Accordion>
+
+<Accordion title="Styles not loading in production">
+  **Problem**: Application works locally but styles are missing in production.
+
+  **Cause**: Tailwind CSS not processing or PostCSS configuration issue.
+
+  **Solution**:
+  1. Verify `postcss.config.mjs` exists in project root
+  2. Check `globals.css` has `@import "tailwindcss";` at the top
+  3. Ensure `globals.css` is imported in `src/app/layout.tsx:3`
+  4. Clear build cache and rebuild:
+     ```bash
+     rm -rf .next
+     npm run build
+     ```
+</Accordion>
+
+## Browser compatibility
+
+### Canvas and MediaDevices support
+
+<Accordion title="Features not working in older browsers">
+  **Problem**: Matrix rain or CharCam don't work in some browsers.
+
+  **Cause**: Missing browser APIs or outdated browser version.
+
+  **Required browser features**:
+  - HTML5 Canvas API (Matrix rain)
+  - `navigator.mediaDevices.getUserMedia()` (CharCam)
+  - ES2017 JavaScript features
+
+  **Minimum browser versions**:
+  - Chrome 53+
+  - Firefox 36+
+  - Safari 11+
+  - Edge 79+
+
+  <Warning>
+  Internet Explorer is not supported. The app uses modern JavaScript features specified in `tsconfig.json:3` (target: ES2017).
+  </Warning>
+</Accordion>
+
+<Accordion title="Mobile browser issues">
+  **Problem**: Application behaves differently on mobile.
+
+  **Solutions**:
+  - **Camera not accessible**: Some mobile browsers restrict camera access in iframes or non-HTTPS contexts
+  - **Performance**: The code already implements responsive font sizing (`src/app/chars/page.tsx:9-14`)
+  - **Layout issues**: Canvas overflow is prevented with `overflow: hidden` in `src/app/globals.css:20`
+  
+  The CharCam page uses `playsInline` attribute (`src/app/chars/page.tsx:182`) to prevent full-screen video on iOS.
+</Accordion>
+
+## Development issues
+
+### Hot reload not working
+
+<Accordion title="Changes not reflected automatically">
+  **Problem**: Editing files doesn't trigger automatic refresh.
+
+  **Cause**: Turbopack or Fast Refresh issue.
+
+  **Solution**:
+  1. Restart dev server: `npm run dev`
+  2. Clear browser cache (Cmd/Ctrl + Shift + R)
+  3. Try without Turbopack:
+     ```json
+     {
+       "scripts": {
+         "dev": "next dev"
+       }
+     }
+     ```
+  4. Check for syntax errors in the file you're editing
+</Accordion>
+
+### Port already in use
+
+<Accordion title="Cannot start dev server on port 3000">
+  **Problem**: Error "Port 3000 is already in use".
+
+  **Solution**:
+  ```bash
+  # Find process using port 3000
+  lsof -i :3000
+
+  # Kill the process
+  kill -9 <PID>
+
+  # Or use a different port
+  PORT=3001 npm run dev
+  ```
+</Accordion>
+
+## Performance optimization
+
+### Matrix rain performance
+
+<Accordion title="Matrix rain effect is slow">
+  **Problem**: Low frame rate or stuttering animation.
+
+  **Cause**: Canvas size too large or too many columns.
+
+  **Solution**:
+  Optimize in `src/app/page.tsx`:
+  ```typescript
+  // Reduce number of columns
+  const columns = Math.floor(canvas.width / 10); // Increase divisor
+
+  // Lower frame rate
+  setTimeout(() => draw(), 50); // Increase timeout
+
+  // Use smaller canvas
+  canvas.width = window.innerWidth * 0.8;
+  canvas.height = window.innerHeight * 0.8;
+  ```
+</Accordion>
+
+### Memory leaks
+
+<Accordion title="Application uses too much memory">
+  **Problem**: Browser tab memory usage increases over time.
+
+  **Cause**: Animation frames not properly cleaned up.
+
+  **Solution**:
+  The CharCam component already implements cleanup in `src/app/chars/page.tsx:169-177`:
+  ```typescript
+  return () => {
+    if (animationFrameIdRef.current) {
+      cancelAnimationFrame(animationFrameIdRef.current);
+    }
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => track.stop());
+    }
+  };
+  ```
+  
+  Ensure you're not creating multiple instances or keeping references to stopped components.
+</Accordion>
+
+## Getting help
+
+If you encounter issues not covered here:
+
+1. Check the [Next.js documentation](https://nextjs.org/docs)
+2. Review browser console for error messages
+3. Search [GitHub issues](https://github.com/vercel/next.js/issues)
+4. Check [MDN Web Docs](https://developer.mozilla.org/) for browser API compatibility
+
+<Tip>
+Most camera-related issues are permission or HTTPS problems. Always test camera features over HTTPS in production.
+</Tip>

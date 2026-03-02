@@ -1,0 +1,105 @@
+---
+title: Introduction
+description: Welcome to Matrix Rain & CharCam - a Next.js 15 application featuring stunning visual effects with HTML5 Canvas
+---
+
+<img
+  className="block dark:hidden"
+  src="/images/hero-light.svg"
+  alt="Matrix Rain Hero Light"
+/>
+<img
+  className="hidden dark:block"
+  src="/images/hero-dark.svg"
+  alt="Matrix Rain Hero Dark"
+/>
+
+## Welcome to Matrix Rain & CharCam
+
+A dynamic web application built with Next.js 15 featuring two captivating interactive experiences:
+
+<CardGroup cols={2}>
+  <Card
+    title="Matrix Digital Rain"
+    icon="matrix"
+    href="/quickstart#matrix-rain"
+  >
+    Experience the iconic Matrix-style digital rain effect with customizable speed, colors, and direction controls
+  </Card>
+  <Card
+    title="CharCam"
+    icon="camera"
+    href="/quickstart#charcam"
+  >
+    Transform your webcam feed into real-time ASCII art using special characters
+  </Card>
+  <Card
+    title="Installation"
+    icon="download"
+    href="/installation"
+  >
+    Get started with step-by-step installation instructions and prerequisites
+  </Card>
+  <Card
+    title="Quickstart"
+    icon="bolt"
+    href="/quickstart"
+  >
+    Run the project locally in minutes with our comprehensive quickstart guide
+  </Card>
+</CardGroup>
+
+## What you'll build
+
+This project showcases modern web technologies working together:
+
+- **Next.js 15** with the App Router for server and client-side rendering
+- **React 19** with hooks for state management and effects
+- **TypeScript** for type-safe development
+- **Tailwind CSS 4** for responsive, utility-first styling
+- **HTML5 Canvas API** for high-performance graphics rendering
+- **WebRTC MediaDevices API** for webcam access
+
+## Key features
+
+### Matrix Digital Rain
+
+The homepage features a mesmerizing Matrix-style digital rain effect that users can customize:
+
+- **Speed control** - Adjust animation speed from 0.1x to 3.0x
+- **Custom colors** - Choose any color using a color picker
+- **RGB rainbow mode** - Enable dynamic rainbow colors with HSL animation
+- **Reverse direction** - Make characters fall up or down
+- **Responsive design** - Adapts to any screen size
+
+### CharCam (ASCII Webcam)
+
+The `/chars` page transforms webcam video into ASCII art in real-time:
+
+- **Real-time rendering** - Converts video frames to characters using brightness mapping
+- **Special character set** - Uses symbols like `!"#$%&'()*+,-./:;<=>?@[\]` for visual variety
+- **Performance optimized** - Responsive font sizing and grid calculations
+- **Privacy focused** - All processing happens locally in the browser
+
+<Note>
+  The application uses the Geist font family (Sans and Mono variants) optimized with `next/font` for better performance.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Installation"
+    icon="download"
+    href="/installation"
+  >
+    Set up your development environment with Node.js and install dependencies
+  </Card>
+  <Card
+    title="Quickstart"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Run the development server and explore the Matrix rain and CharCam features
+  </Card>
+</CardGroup>

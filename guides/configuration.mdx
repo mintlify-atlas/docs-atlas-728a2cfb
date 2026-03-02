@@ -1,0 +1,363 @@
+---
+title: Configuration
+description: Configure the Matrix Rain & CharCam application including Next.js, TypeScript, and Tailwind CSS settings
+---
+
+This guide covers all configuration files and customization options for the project.
+
+## Next.js configuration
+
+The project uses Next.js 15 with minimal configuration.
+
+### next.config.ts
+
+Located at `next.config.ts` in the project root:
+
+```typescript
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+};
+
+export default nextConfig;
+```
+
+### Common configuration options
+
+<Accordion title="Enable standalone output for Docker">
+  Add this for containerized deployments:
+  ```typescript
+  const nextConfig: NextConfig = {
+    output: 'standalone',
+  };
+  ```
+</Accordion>
+
+<Accordion title="Configure image domains">
+  If you add external images:
+  ```typescript
+  const nextConfig: NextConfig = {
+    images: {
+      remotePatterns: [
+        {
+          protocol: 'https',
+          hostname: 'example.com',
+        },
+      ],
+    },
+  };
+  ```
+</Accordion>
+
+<Accordion title="Enable Turbopack in production">
+  Currently enabled in dev mode (`package.json:6`):
+  ```json
+  "dev": "next dev --turbopack"
+  ```
+  Turbopack is Next.js's faster bundler, currently in beta.
+</Accordion>
+
+<Tip>
+The default configuration works perfectly for this project. Only modify if you have specific requirements.
+</Tip>
+
+## TypeScript configuration
+
+The project uses TypeScript 5 with strict mode enabled.
+
+### tsconfig.json
+
+Located at `tsconfig.json` in the project root:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+```
+
+### Key TypeScript settings
+
+- **Strict mode**: Enabled for type safety (`strict: true`)
+- **Path aliases**: `@/*` maps to `./src/*` for cleaner imports
+- **Target**: ES2017 for modern browser support
+- **Next.js plugin**: Provides type definitions for Next.js features
+
+<Warning>
+The `@/*` path alias is configured but not currently used in the codebase. To use it, import like:
+```typescript
+import Component from '@/app/components/MyComponent';
+```
+</Warning>
+
+## Tailwind CSS configuration
+
+The project uses Tailwind CSS 4 with the new PostCSS plugin architecture.
+
+### PostCSS configuration
+
+Located at `postcss.config.mjs`:
+
+```javascript
+const config = {
+  plugins: ["@tailwindcss/postcss"],
+};
+
+export default config;
+```
+
+### Global styles
+
+Located at `src/app/globals.css`:
+
+```css
+@import "tailwindcss";
+
+:root {
+  --background: #000000;
+  --foreground: #00ff00;
+}
+
+:root {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--background);
+}
+
+body {
+  color: var(--foreground);
+}
+```
+
+### Customizing the theme
+
+<Steps>
+  <Step title="Modify CSS variables">
+    Edit `src/app/globals.css` to change the default colors:
+    ```css
+    :root {
+      --background: #000000;  /* Change to your preferred background */
+      --foreground: #00ff00;  /* Matrix green - change as needed */
+    }
+    ```
+  </Step>
+
+  <Step title="Create tailwind.config.ts (optional)">
+    For advanced Tailwind customization, create a config file:
+    ```typescript
+    import type { Config } from 'tailwindcss';
+
+    const config: Config = {
+      content: [
+        './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
+        './src/components/**/*.{js,ts,jsx,tsx,mdx}',
+        './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+      ],
+      theme: {
+        extend: {
+          colors: {
+            matrix: '#00ff00',
+          },
+        },
+      },
+    };
+
+    export default config;
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+Tailwind CSS 4 doesn't require a config file by default. The `@import "tailwindcss"` directive in `globals.css` is all you need.
+</Tip>
+
+## Font configuration
+
+The project uses Next.js font optimization with Geist fonts.
+
+### Font setup
+
+Located in `src/app/layout.tsx`:
+
+```typescript
+import { Geist, Geist_Mono } from "next/font/google";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+```
+
+Fonts are applied via CSS variables and can be referenced in your styles:
+
+```css
+font-family: var(--font-geist-sans);  /* Sans serif */
+font-family: var(--font-geist-mono);  /* Monospace */
+```
+
+### Changing fonts
+
+<Accordion title="Use different Google Fonts">
+  ```typescript
+  import { Inter, Roboto_Mono } from "next/font/google";
+
+  const inter = Inter({
+    variable: "--font-sans",
+    subsets: ["latin"],
+  });
+
+  const robotoMono = Roboto_Mono({
+    variable: "--font-mono",
+    subsets: ["latin"],
+  });
+  ```
+</Accordion>
+
+<Accordion title="Use local fonts">
+  ```typescript
+  import localFont from "next/font/local";
+
+  const myFont = localFont({
+    src: './fonts/MyFont.woff2',
+    variable: '--font-custom',
+  });
+  ```
+</Accordion>
+
+## Package configuration
+
+The `package.json` defines project dependencies and scripts.
+
+### Available scripts
+
+```json
+{
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  }
+}
+```
+
+- **`npm run dev`**: Start development server with Turbopack
+- **`npm run build`**: Create production build
+- **`npm start`**: Run production server
+- **`npm run lint`**: Run ESLint
+
+### Dependencies
+
+Core dependencies:
+
+- `next`: 15.3.2
+- `react`: 19.0.0
+- `react-dom`: 19.0.0
+- `tailwindcss`: 4.x
+- `typescript`: 5.x
+
+<Warning>
+React 19 is the latest version and may have breaking changes from React 18. Most libraries are compatible, but check compatibility when adding new packages.
+</Warning>
+
+## ESLint configuration
+
+The project uses Next.js's built-in ESLint config.
+
+### eslint.config.mjs
+
+Located at `eslint.config.mjs`:
+
+```javascript
+import { FlatCompat } from "@eslint/eslintrc";
+import { dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+});
+
+const eslintConfig = [
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
+];
+
+export default eslintConfig;
+```
+
+This extends Next.js recommended rules for TypeScript and Core Web Vitals.
+
+## Metadata configuration
+
+Configure site metadata in `src/app/layout.tsx`:
+
+```typescript
+export const metadata: Metadata = {
+  title: "Matrix Rain",
+  description: "A Matrix digital rain effect using Next.js and Canvas.",
+};
+```
+
+### Adding more metadata
+
+```typescript
+export const metadata: Metadata = {
+  title: {
+    default: "Matrix Rain & CharCam",
+    template: "%s | Matrix Rain",
+  },
+  description: "Interactive Matrix effects and ASCII camera art",
+  keywords: ["matrix", "canvas", "nextjs", "ascii", "webcam"],
+  authors: [{ name: "Your Name" }],
+  openGraph: {
+    title: "Matrix Rain & CharCam",
+    description: "Interactive Matrix effects",
+    type: "website",
+  },
+};
+```
+
+<Tip>
+Each page can override metadata using the same `metadata` export pattern.
+</Tip>

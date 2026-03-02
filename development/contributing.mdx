@@ -1,0 +1,426 @@
+---
+title: Contributing
+description: How to contribute to the Matrix Rain & CharCam project
+---
+
+## Getting started
+
+Contributions to Matrix Rain & CharCam are welcome! This guide will help you set up your development environment and understand the contribution workflow.
+
+## Development setup
+
+<Steps>
+
+<Step title="Clone the repository">
+First, clone the project repository to your local machine:
+
+```bash
+git clone <repository-url>
+cd <repository-folder>
+```
+</Step>
+
+<Step title="Install dependencies">
+Install project dependencies using your preferred package manager:
+
+```bash
+npm install
+# or
+yarn install
+# or
+pnpm install
+# or
+bun install
+```
+
+<Note>
+The project uses Node.js with npm by default. Ensure you have Node.js installed (version 20+ recommended based on the `@types/node` dependency).
+</Note>
+</Step>
+
+<Step title="Run the development server">
+Start the development server with Turbopack for fast hot-reloading:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+The application will be available at [http://localhost:3000](http://localhost:3000).
+</Step>
+
+<Step title="Verify the setup">
+Open your browser and navigate to:
+
+- `http://localhost:3000` - Matrix rain homepage
+- `http://localhost:3000/chars` - CharCam page (requires camera permission)
+- `http://localhost:3000/lorem` - About page
+
+The page should auto-update as you edit files.
+</Step>
+
+</Steps>
+
+## Project scripts
+
+The following npm scripts are available:
+
+| Script | Command | Description |
+|--------|---------|-------------|
+| `dev` | `next dev --turbopack` | Start development server with Turbopack |
+| `build` | `next build` | Create production build |
+| `start` | `next start` | Start production server |
+| `lint` | `next lint` | Run ESLint code linting |
+
+### Running the linter
+
+Before submitting code, ensure it passes linting:
+
+```bash
+npm run lint
+```
+
+The project uses ESLint 9 with Next.js configuration.
+
+### Building for production
+
+Test your changes in production mode:
+
+```bash
+npm run build
+npm start
+```
+
+## Code style guidelines
+
+### TypeScript conventions
+
+- **Use TypeScript** for all new components and files
+- **Type all component props** explicitly
+- **Use proper ref types** for Canvas and video elements
+
+```tsx
+// Good: Explicit types
+const canvasRef = useRef<HTMLCanvasElement>(null);
+const videoRef = useRef<HTMLVideoElement>(null);
+const [sliderValue, setSliderValue] = useState<number>(100);
+
+// Avoid: Implicit any
+const canvasRef = useRef(null); // Type is MutableRefObject<null>
+```
+
+### React patterns
+
+#### Client components
+
+All pages with Canvas or browser APIs must be client components:
+
+```tsx
+"use client";
+
+import { useEffect, useRef, useState, useCallback } from "react";
+```
+
+#### Ref usage for animation values
+
+Use refs for values accessed in animation loops to avoid stale closures:
+
+```tsx
+// State for UI updates
+const [sliderValue, setSliderValue] = useState(100);
+
+// Ref for animation loop access
+const speedRef = useRef(1.0);
+
+useEffect(() => {
+  speedRef.current = sliderValue / 100.0;
+}, [sliderValue]);
+```
+
+#### Effect cleanup
+
+Always clean up side effects properly:
+
+```tsx
+useEffect(() => {
+  const handleResize = () => { /* ... */ };
+  window.addEventListener("resize", handleResize);
+
+  return () => {
+    window.removeEventListener("resize", handleResize);
+    cancelAnimationFrame(animationFrameId);
+  };
+}, []);
+```
+
+### Styling conventions
+
+- **Use Tailwind utility classes** for all styling
+- **Follow responsive design patterns** with sm/md/lg breakpoints
+- **Use semantic color names** from Tailwind (e.g., `bg-purple-600`, `text-green-500`)
+
+```tsx
+<button className="w-full px-2 sm:px-3 py-1.5 sm:py-2 
+                   text-xs sm:text-sm rounded-md 
+                   bg-purple-600 hover:bg-purple-700 
+                   transition-colors">
+  Button Text
+</button>
+```
+
+### Canvas rendering patterns
+
+#### Animation loop structure
+
+Follow this pattern for Canvas animation loops:
+
+```tsx
+let animationFrameId: number;
+
+const draw = () => {
+  // 1. Clear/fade previous frame
+  ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+  ctx.fillRect(0, 0, width, height);
+
+  // 2. Update state
+  // 3. Render new frame
+  // 4. Request next frame
+  animationFrameId = requestAnimationFrame(draw);
+};
+
+draw();
+
+return () => cancelAnimationFrame(animationFrameId);
+```
+
+#### Context options
+
+When reading pixels frequently, use the `willReadFrequently` hint:
+
+```tsx
+const ctx = canvas.getContext("2d", { willReadFrequently: true });
+```
+
+## Making contributions
+
+### Areas for contribution
+
+Here are some areas where contributions are especially welcome:
+
+<Steps>
+
+<Step title="New visual effects">
+Add new Canvas-based effects or variations:
+- Different character rain styles
+- Additional color modes
+- New ASCII art filters for CharCam
+</Step>
+
+<Step title="Performance improvements">
+Optimize rendering performance:
+- Reduce `getImageData()` calls
+- Implement WebGL rendering
+- Add frame rate limiting options
+</Step>
+
+<Step title="Features and controls">
+Expand user customization options:
+- Character set selection
+- Font size controls
+- Export/screenshot functionality
+- Animation presets
+</Step>
+
+<Step title="Accessibility">
+Improve accessibility:
+- Keyboard navigation
+- Screen reader support
+- Reduced motion preferences
+- High contrast modes
+</Step>
+
+</Steps>
+
+### Contribution workflow
+
+<Steps>
+
+<Step title="Fork and create a branch">
+Create a feature branch for your work:
+
+```bash
+git checkout -b feature/your-feature-name
+# or
+git checkout -b fix/bug-description
+```
+</Step>
+
+<Step title="Make your changes">
+Implement your feature or fix:
+- Write clean, documented code
+- Follow existing patterns and conventions
+- Test on multiple screen sizes
+- Verify Canvas performance
+</Step>
+
+<Step title="Test thoroughly">
+Test your changes:
+
+```bash
+# Run linter
+npm run lint
+
+# Test development build
+npm run dev
+
+# Test production build
+npm run build
+npm start
+```
+
+Test in multiple browsers:
+- Chrome/Edge (Chromium)
+- Firefox
+- Safari (if on macOS)
+</Step>
+
+<Step title="Commit your changes">
+Write clear, descriptive commit messages:
+
+```bash
+git add .
+git commit -m "feat: add character set selection dropdown"
+# or
+git commit -m "fix: prevent memory leak in animation cleanup"
+```
+
+<Tip>
+Use conventional commit prefixes:
+- `feat:` - New features
+- `fix:` - Bug fixes
+- `docs:` - Documentation changes
+- `perf:` - Performance improvements
+- `refactor:` - Code refactoring
+- `style:` - Formatting changes
+</Tip>
+</Step>
+
+<Step title="Submit a pull request">
+Push your branch and create a pull request:
+
+```bash
+git push origin feature/your-feature-name
+```
+
+In your pull request:
+- Describe what changed and why
+- Include screenshots for visual changes
+- Reference any related issues
+- Explain testing performed
+</Step>
+
+</Steps>
+
+## Testing guidelines
+
+<Note>
+Currently, the project does not have automated tests. When adding tests, consider:
+- Jest for unit tests
+- React Testing Library for component tests
+- Playwright or Cypress for E2E tests
+</Note>
+
+### Manual testing checklist
+
+Before submitting changes, test:
+
+**Matrix Rain page:**
+- [ ] Characters render correctly
+- [ ] Speed slider adjusts animation
+- [ ] Color picker changes character color
+- [ ] RGB mode displays rainbow effect
+- [ ] Direction toggle works (up/down)
+- [ ] Responsive on mobile and desktop
+- [ ] No console errors
+
+**CharCam page:**
+- [ ] Camera permission request works
+- [ ] Video feed renders as ASCII art
+- [ ] Brightness detection is accurate
+- [ ] Responsive grid sizing
+- [ ] Proper error messages for denied permissions
+- [ ] No memory leaks on mount/unmount
+
+**General:**
+- [ ] Navigation links work
+- [ ] No TypeScript errors
+- [ ] Linter passes
+- [ ] Production build succeeds
+
+## Code review process
+
+When submitting a pull request:
+
+1. **Automated checks** - ESLint must pass
+2. **Code review** - Maintainers will review your code
+3. **Testing verification** - Changes will be tested
+4. **Approval and merge** - Once approved, code will be merged
+
+<Tip>
+Be responsive to feedback and be prepared to make revisions. Code review is a collaborative process to ensure code quality.
+</Tip>
+
+## Development tips
+
+### Debugging Canvas rendering
+
+Add debug logging to understand animation state:
+
+```tsx
+const draw = () => {
+  console.log('Frame:', {
+    columns: canvasDimensionsRef.current.columns,
+    drops: dropsRef.current.length,
+    speed: speedRef.current
+  });
+  // ... rest of draw function
+};
+```
+
+### Performance profiling
+
+Use Chrome DevTools Performance panel:
+1. Open DevTools > Performance
+2. Record while animation runs
+3. Look for:
+   - Frame rate drops
+   - Long tasks
+   - Memory leaks
+
+### Hot reload caveats
+
+When using Turbopack hot reload:
+- Canvas refs may not update properly
+- Force full refresh if Canvas stops rendering
+- Camera permissions persist across reloads
+
+## Questions and support
+
+If you have questions about contributing:
+
+- Check existing issues and pull requests
+- Review this documentation
+- Open a new issue for clarification
+
+<Note>
+This project was developed with assistance from GitHub Copilot. Feel free to use AI tools to help with your contributions, but always review and understand the generated code.
+</Note>
+
+## License
+
+By contributing to this project, you agree that your contributions will be licensed under the same license as the project.

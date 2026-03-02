@@ -1,80 +1,256 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get Matrix Rain & CharCam running on your local machine in minutes
 ---
 
-## Get started in three steps
+## Get started in 3 steps
 
-Get your documentation site running locally and make your first customization.
+<Steps>
+  <Step title="Clone and install dependencies">
+    Clone the repository and install all required packages:
 
-### Step 1: Set up your local environment
+    <CodeGroup>
+    ```bash npm
+    git clone <repository-url>
+    cd <repository-folder>
+    npm install
+    ```
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    ```bash yarn
+    git clone <repository-url>
+    cd <repository-folder>
+    yarn install
+    ```
 
-### Step 2: Deploy your changes
+    ```bash pnpm
+    git clone <repository-url>
+    cd <repository-folder>
+    pnpm install
+    ```
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    ```bash bun
+    git clone <repository-url>
+    cd <repository-folder>
+    bun install
+    ```
+    </CodeGroup>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    <Tip>
+      The project uses Next.js 15.3.2 with React 19 and Tailwind CSS 4. All dependencies are managed through the package manager of your choice.
+    </Tip>
+  </Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Start the development server">
+    Run the development server with Turbopack for fast refresh:
 
-### Step 3: Go live
+    <CodeGroup>
+    ```bash npm
+    npm run dev
+    ```
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    ```bash yarn
+    yarn dev
+    ```
+
+    ```bash pnpm
+    pnpm dev
+    ```
+
+    ```bash bun
+    bun dev
+    ```
+    </CodeGroup>
+
+    The server will start on [http://localhost:3000](http://localhost:3000).
+
+    <Note>
+      The project uses `--turbopack` flag for faster development builds. This is configured in `package.json` under the `dev` script.
+    </Note>
+  </Step>
+
+  <Step title="Explore the features">
+    Open your browser and navigate to:
+
+    - **[http://localhost:3000](http://localhost:3000)** - Matrix Digital Rain
+    - **[http://localhost:3000/chars](http://localhost:3000/chars)** - CharCam
+    - **[http://localhost:3000/lorem](http://localhost:3000/lorem)** - About page
+  </Step>
+</Steps>
+
+## Matrix Rain controls
+
+Once the Matrix Rain page is running, you'll see a control panel in the top-right corner:
+
+### Speed slider
+
+Adjust the falling speed of characters from 0.1x to 3.0x:
+
+```tsx src/app/page.tsx
+const [sliderValue, setSliderValue] = useState(100);
+const speedRef = useRef(1.0);
+
+useEffect(() => {
+  speedRef.current = sliderValue / 100.0;
+}, [sliderValue]);
+```
+
+The speed value is converted to a multiplier and applied during the animation loop.
+
+### Color picker
+
+Select any color for the falling characters:
+
+```tsx src/app/page.tsx
+const [characterColor, setCharacterColor] = useState("#00FF00");
+const colorRef = useRef("#00FF00");
+
+// In the draw function
+ctx.fillStyle = colorRef.current;
+```
+
+<Note>
+  The color picker is disabled when RGB mode is active.
+</Note>
+
+### RGB rainbow mode
+
+Enable dynamic rainbow colors using HSL color space:
+
+```tsx src/app/page.tsx
+const [isRgbMode, setIsRgbMode] = useState(false);
+const rgbEffectTimeRef = useRef(0);
+
+// In the draw function
+if (isRgbModeRef.current) {
+  rgbEffectTimeRef.current = (rgbEffectTimeRef.current + 0.5) % 360;
+  const hue = (dropsRef.current[i] * 2 + rgbEffectTimeRef.current) % 360;
+  ctx.fillStyle = `hsl(${hue < 0 ? hue + 360 : hue}, 100%, 50%)`;
+}
+```
+
+Each character column gets a different hue that cycles over time.
+
+### Direction toggle
+
+Reverse the rain direction to make characters fall upward:
+
+```tsx src/app/page.tsx
+const [isFallingDown, setIsFallingDown] = useState(true);
+
+// Initialize drops based on direction
+for (let i = 0; i < columns; i++) {
+  if (isFallingDownRef.current) {
+    newDrops[i] = Math.random() * -height / fontSize;
+  } else {
+    newDrops[i] = height / fontSize + (Math.random() * height / fontSize);
+  }
+}
+```
+
+## CharCam setup
+
+Navigate to `/chars` to experience the ASCII webcam:
+
+<Steps>
+  <Step title="Grant camera permissions">
+    When you first visit the CharCam page, your browser will request camera access:
+
+    ```tsx src/app/chars/page.tsx
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { ideal: 320 },
+        height: { ideal: 240 },
+      },
+      audio: false,
+    });
+    ```
+
+    <Tip>
+      The application requests a lower resolution (320x240) for better performance when converting to ASCII art.
+    </Tip>
+  </Step>
+
+  <Step title="Watch the real-time conversion">
+    The webcam feed is processed frame-by-frame:
+
+    ```tsx src/app/chars/page.tsx
+    // Draw video to processing canvas at grid resolution
+    processingCtx.drawImage(videoRef.current, 0, 0, gridCols, gridRows);
+
+    // Get pixel data
+    const imageData = processingCtx.getImageData(0, 0, gridCols, gridRows);
+    const data = imageData.data;
+
+    // Convert each pixel to a character based on brightness
+    for (let y = 0; y < gridRows; y++) {
+      for (let x = 0; x < gridCols; x++) {
+        const i = (y * gridCols + x) * 4;
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const brightness = (r + g + b) / 3 / 255;
+
+        if (brightness > 0.2) {
+          const char = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
+          outputCtx.fillText(char, x * charFontSize + charFontSize / 2, y * charFontSize + charFontSize / 2);
+        }
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Responsive rendering">
+    The character grid automatically adjusts to screen size:
+
+    ```tsx src/app/chars/page.tsx
+    const getCharFontSize = () => {
+      if (typeof window !== "undefined") {
+        if (window.innerWidth < 768) return 10; // Mobile
+      }
+      return 14; // Desktop
+    };
+
+    const newCols = Math.floor(window.innerWidth / currentFontSize);
+    const availableHeight = window.innerHeight - VERTICAL_OFFSET;
+    const newRows = Math.floor(availableHeight / currentFontSize);
+    ```
+  </Step>
+</Steps>
+
+## Character sets used
+
+### Matrix Rain
+
+The Matrix rain uses a combination of Japanese Katakana, Latin letters, and numbers:
+
+```tsx src/app/page.tsx
+const katakana = "アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズヅブプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン";
+const latin = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const nums = "0123456789";
+const characters = katakana + latin + nums;
+```
+
+### CharCam
+
+CharCam uses a reduced set of special characters for better visual appearance:
+
+```tsx src/app/chars/page.tsx
+const CHARACTERS = "!\"#$%&'()*+,-./:;<=>?@[\\]";
+```
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card
+    title="Customize the code"
+    icon="code"
+  >
+    Edit `src/app/page.tsx` to modify the Matrix rain effect or change character sets
+  </Card>
+  <Card
+    title="Build for production"
+    icon="rocket"
+  >
+    Run `npm run build` to create an optimized production build
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
